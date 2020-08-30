@@ -1,5 +1,5 @@
-// Package downloader provides a struct that can download files from the internet
-package downloader
+// Package dl provides a struct that can download files from the internet
+package dl
 
 import (
 	"errors"
