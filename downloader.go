@@ -131,7 +131,7 @@ func (d *Downloader) createSections(h headInfo) [][2]int {
 
 func (d *Downloader) mergeTempFiles(sections [][2]int) error {
 	d.log("Merging")
-	f, err := os.OpenFile(d.dir + string(os.PathSeparator) + d.filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
+	f, err := os.OpenFile(getPath(d.dir, d.filename), os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -215,4 +215,11 @@ func (d *Downloader) log(line interface{}) {
 	if d.logger != nil {
 		d.logger.Print(line)
 	}
+}
+
+func getPath(dir, filename string) string {
+	if dir != "" {
+		return dir + string(os.PathSeparator) + filename
+	}
+	return filename
 }
