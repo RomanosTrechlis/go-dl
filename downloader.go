@@ -78,19 +78,30 @@ func (d *Downloader) get(h headInfo) error {
 	}
 
 	if h.size == 0 || !h.supportsRange {
-		// single request
 		s := make([][2]int, 1)
-		err := d.downloadSection(0, s[0])
-		if err != nil {
-			return err
-		}
-		return d.mergeTempFiles(s)
+		return d.downloadMultipleSections(h, s)
 	}
 
 	sections := d.createSections(h)
+	return d.downloadMultipleSections(h, sections)
+}
+
+func (d *Downloader) downloadSingleSection(h headInfo, sections [][2]int) error {
+	// single request
+	var wg sync.WaitGroup
+	wg.Add(1)
+	err := d.downloadSection(0, sections[0])
+	if err != nil {
+		return err
+	}
+	wg.Wait()
+
+	return d.mergeTempFiles(sections)
+}
+
+func (d *Downloader) downloadMultipleSections(h headInfo, sections [][2]int) error {
 
 	limiter := make(chan struct{}, d.workers)
-
 	var wg sync.WaitGroup
 	for i, s := range sections {
 		limiter <- struct{}{}
