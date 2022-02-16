@@ -115,8 +115,7 @@ func (d *Downloader) downloadMultipleSections(sections [][2]int) error {
 }
 
 func (d *Downloader) createSections(h headInfo) [][2]int {
-	sectionsNumber := h.size / d.workers
-	d.log(fmt.Sprintf("number of sections: %d", sectionsNumber))
+	chunk := h.size / d.workers
 	if h.size == 0 {
 		return d.buildEmptySection()
 	}
@@ -129,8 +128,8 @@ func (d *Downloader) createSections(h headInfo) [][2]int {
 			sections[i][0] = sections[i-1][1] + 1
 		}
 
-		if i < sectionsNumber-1 {
-			sections[i][1] = sections[i][0] + d.chunk - 1
+		if i < d.workers-1 {
+			sections[i][1] = sections[i][0] + chunk - 1
 		} else {
 			sections[i][1] = h.size - 1
 		}
