@@ -179,10 +179,14 @@ func (d *Downloader) downloadSection(i int, c [2]int) error {
 	if c[1] > 0 {
 		r.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", c[0], c[1]))
 	}
+
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
 		return err
 	}
+
+	defer resp.Body.Close()
+
 	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
 		return errors.New(fmt.Sprintf("Can't process, response is %v", resp.StatusCode))
 	}
@@ -210,6 +214,7 @@ func (d *Downloader) getRequestedFileHeadInfo() headInfo {
 	if err != nil {
 		return headInfo{0, false, err}
 	}
+	defer resp.Body.Close()
 
 	d.log(fmt.Sprintf("Got %v\n", resp.StatusCode))
 	if resp.StatusCode > 299 && resp.StatusCode < 200 {
