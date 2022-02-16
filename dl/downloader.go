@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 )
@@ -36,7 +38,7 @@ func New(url, dir, filename string) *Downloader {
 		url:      url,
 		dir:      dir,
 		filename: filename,
-		workers:  10,
+		workers:  runtime.NumCPU(),
 		chunk:    1024,
 	}
 }
@@ -78,38 +80,32 @@ func (d *Downloader) get(h headInfo) error {
 	}
 
 	if h.size == 0 || !h.supportsRange {
-		return d.downloadMultipleSections(h, d.buildEmptySection())
+		return d.downloadMultipleSections(d.buildEmptySection())
 	}
 
-	return d.downloadMultipleSections(h, d.createSections(h))
+	return d.downloadMultipleSections(d.createSections(h))
 }
 
 func (d *Downloader) downloadSingleSection(h headInfo, sections [][2]int) error {
 	// single request
-	var wg sync.WaitGroup
-	wg.Add(1)
 	err := d.downloadSection(0, sections[0])
 	if err != nil {
 		return err
 	}
-	wg.Wait()
 
 	return d.mergeTempFiles(sections)
 }
 
-func (d *Downloader) downloadMultipleSections(h headInfo, sections [][2]int) error {
-	limiter := make(chan struct{}, d.workers)
+func (d *Downloader) downloadMultipleSections(sections [][2]int) error {
 	var wg sync.WaitGroup
 	for i, s := range sections {
 		d.log(s)
-		limiter <- struct{}{}
 		wg.Add(1)
 		go func(i int, s [2]int) {
 			defer wg.Done()
 			err := d.downloadSection(i, s)
-			<-limiter
 			if err != nil {
-				log.Print(err)
+				d.log(err)
 			}
 		}(i, s)
 	}
@@ -119,12 +115,13 @@ func (d *Downloader) downloadMultipleSections(h headInfo, sections [][2]int) err
 }
 
 func (d *Downloader) createSections(h headInfo) [][2]int {
-	sectionsNumber := h.size / d.chunk
-	if sectionsNumber == 0 {
+	sectionsNumber := h.size / d.workers
+	d.log(fmt.Sprintf("number of sections: %d", sectionsNumber))
+	if h.size == 0 {
 		return d.buildEmptySection()
 	}
 
-	sections := make([][2]int, sectionsNumber)
+	sections := make([][2]int, d.workers)
 	for i := range sections {
 		if i == 0 {
 			sections[i][0] = 0
@@ -143,7 +140,8 @@ func (d *Downloader) createSections(h headInfo) [][2]int {
 
 func (d *Downloader) buildEmptySection() [][2]int {
 	sections := make([][2]int, 1)
-	sections[0][0] = 0; sections[0][1] = d.chunk - 1
+	sections[0][0] = 0
+	sections[0][1] = d.chunk - 1
 	return sections
 }
 
@@ -156,7 +154,7 @@ func (d *Downloader) mergeTempFiles(sections [][2]int) error {
 	defer f.Close()
 	defer os.RemoveAll("temp")
 	for i := range sections {
-		tmpFileName := fmt.Sprintf("temp"+string(os.PathSeparator)+"section-%v.tmp", i)
+		tmpFileName := filepath.Join("temp", fmt.Sprintf("section-%v.tmp", i))
 		b, err := ioutil.ReadFile(tmpFileName)
 		if err != nil {
 			return err
@@ -195,7 +193,7 @@ func (d *Downloader) downloadSection(i int, c [2]int) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("temp"+string(os.PathSeparator)+"section-%v.tmp", i), b, os.ModePerm)
+	err = ioutil.WriteFile(filepath.Join("temp", fmt.Sprintf("section-%v.tmp", i)), b, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -205,6 +203,7 @@ func (d *Downloader) downloadSection(i int, c [2]int) error {
 func (d *Downloader) getRequestedFileHeadInfo() headInfo {
 	r, err := http.NewRequest(http.MethodHead, d.url, nil)
 	if err != nil {
+		d.log(fmt.Sprintf("Method HEAD error: %v", err))
 		return headInfo{0, false, err}
 	}
 
@@ -240,7 +239,7 @@ func (d *Downloader) log(line interface{}) {
 
 func getPath(dir, filename string) string {
 	if dir != "" {
-		return dir + string(os.PathSeparator) + filename
+		return filepath.Join(dir, filename)
 	}
 	return filename
 }
