@@ -10,7 +10,7 @@ func TestDownload(t *testing.T) {
 	defer os.RemoveAll("test")
 	d := New("https://raw.githubusercontent.com/RomanosTrechlis/MyNotes/master/Ettenhard/Tratado%20Quarto%20De%20Las%20Tretas%20Generales.md", "test", "1.md")
 	err := d.Download()
-	if  err != nil {
+	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -24,7 +24,7 @@ func BenchmarkDownloader_Download(b *testing.B) {
 		defer os.Remove("test/1.md")
 		d := New("https://raw.githubusercontent.com/RomanosTrechlis/MyNotes/master/Ettenhard/Tratado%20Quarto%20De%20Las%20Tretas%20Generales.md", "test", "1.md")
 		err := d.Download()
-		if  err != nil {
+		if err != nil {
 			b.Fatal(err)
 		}
 	}

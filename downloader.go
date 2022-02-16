@@ -78,21 +78,30 @@ func (d *Downloader) get(h headInfo) error {
 	}
 
 	if h.size == 0 || !h.supportsRange {
-		// single request
-		s := make([][2]int, 1)
-		err := d.downloadSection(0, s[0])
-		if err != nil {
-			return err
-		}
-		return d.mergeTempFiles(s)
+		return d.downloadMultipleSections(h, d.buildEmptySection())
 	}
 
-	sections := d.createSections(h)
+	return d.downloadMultipleSections(h, d.createSections(h))
+}
 
+func (d *Downloader) downloadSingleSection(h headInfo, sections [][2]int) error {
+	// single request
+	var wg sync.WaitGroup
+	wg.Add(1)
+	err := d.downloadSection(0, sections[0])
+	if err != nil {
+		return err
+	}
+	wg.Wait()
+
+	return d.mergeTempFiles(sections)
+}
+
+func (d *Downloader) downloadMultipleSections(h headInfo, sections [][2]int) error {
 	limiter := make(chan struct{}, d.workers)
-
 	var wg sync.WaitGroup
 	for i, s := range sections {
+		d.log(s)
 		limiter <- struct{}{}
 		wg.Add(1)
 		go func(i int, s [2]int) {
@@ -111,8 +120,11 @@ func (d *Downloader) get(h headInfo) error {
 
 func (d *Downloader) createSections(h headInfo) [][2]int {
 	sectionsNumber := h.size / d.chunk
-	sections := make([][2]int, sectionsNumber)
+	if sectionsNumber == 0 {
+		return d.buildEmptySection()
+	}
 
+	sections := make([][2]int, sectionsNumber)
 	for i := range sections {
 		if i == 0 {
 			sections[i][0] = 0
@@ -126,6 +138,12 @@ func (d *Downloader) createSections(h headInfo) [][2]int {
 			sections[i][1] = h.size - 1
 		}
 	}
+	return sections
+}
+
+func (d *Downloader) buildEmptySection() [][2]int {
+	sections := make([][2]int, 1)
+	sections[0][0] = 0; sections[0][1] = d.chunk - 1
 	return sections
 }
 
@@ -186,13 +204,16 @@ func (d *Downloader) downloadSection(i int, c [2]int) error {
 
 func (d *Downloader) getRequestedFileHeadInfo() headInfo {
 	r, err := http.NewRequest(http.MethodHead, d.url, nil)
+	if err != nil {
+		return headInfo{0, false, err}
+	}
 
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
 		return headInfo{0, false, err}
 	}
-	d.log(fmt.Sprintf("Got %v\n", resp.StatusCode))
 
+	d.log(fmt.Sprintf("Got %v\n", resp.StatusCode))
 	if resp.StatusCode > 299 && resp.StatusCode < 200 {
 		return headInfo{0, false, errors.New(fmt.Sprintf("Can't process, response is %v", resp.StatusCode))}
 	}
