@@ -14,10 +14,10 @@ import (
 
 // Downloader holds the necessary attributes to download a file and save it to a path
 type Downloader struct {
-	url string
-	dir string
+	url      string
+	dir      string
 	filename string
-	workers int
+	workers  int
 	// number of bytes to download each time
 	chunk int
 
@@ -25,30 +25,30 @@ type Downloader struct {
 }
 
 type headInfo struct {
-	size int
-	supportsRange  bool
-	err error
+	size          int
+	supportsRange bool
+	err           error
 }
 
 // New creates a new instance of Downloader object with default values
 func New(url, dir, filename string) *Downloader {
 	return &Downloader{
-		url: url,
-		dir: dir,
+		url:      url,
+		dir:      dir,
 		filename: filename,
-		workers: 10,
-		chunk: 1024,
+		workers:  10,
+		chunk:    1024,
 	}
 }
 
 // Workers sets the number of workers that will run concurrently
-func (d *Downloader) Workers(w int) { d.workers = w}
+func (d *Downloader) Workers(w int) { d.workers = w }
 
 // SectionSize sets the size of the chunk that each worker will download
-func (d *Downloader) SectionSize(c int) {d.chunk = c}
+func (d *Downloader) SectionSize(c int) { d.chunk = c }
 
 // Logger enables logging
-func (d *Downloader) Logger(log *log.Logger) { d.logger = log}
+func (d *Downloader) Logger(log *log.Logger) { d.logger = log }
 
 // Download saves a file from the internet locally
 func (d *Downloader) Download() error {
@@ -63,7 +63,7 @@ func (d *Downloader) Download() error {
 func (d *Downloader) validate() error {
 	_, err := os.Stat(d.dir)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("output directory does not exists: %v", err);
+		return fmt.Errorf("output directory does not exists: %v", err)
 	}
 	return nil
 }
@@ -138,7 +138,7 @@ func (d *Downloader) mergeTempFiles(sections [][2]int) error {
 	defer f.Close()
 	defer os.RemoveAll("temp")
 	for i := range sections {
-		tmpFileName := fmt.Sprintf("temp" + string(os.PathSeparator) + "section-%v.tmp", i)
+		tmpFileName := fmt.Sprintf("temp"+string(os.PathSeparator)+"section-%v.tmp", i)
 		b, err := ioutil.ReadFile(tmpFileName)
 		if err != nil {
 			return err
@@ -177,7 +177,7 @@ func (d *Downloader) downloadSection(i int, c [2]int) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("temp" + string(os.PathSeparator) + "section-%v.tmp", i), b, os.ModePerm)
+	err = ioutil.WriteFile(fmt.Sprintf("temp"+string(os.PathSeparator)+"section-%v.tmp", i), b, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (d *Downloader) getRequestedFileHeadInfo() headInfo {
 	d.log(fmt.Sprintf("Got %v\n", resp.StatusCode))
 
 	if resp.StatusCode > 299 && resp.StatusCode < 200 {
-		return  headInfo{0, false, errors.New(fmt.Sprintf("Can't process, response is %v", resp.StatusCode))}
+		return headInfo{0, false, errors.New(fmt.Sprintf("Can't process, response is %v", resp.StatusCode))}
 	}
 
 	length := resp.Header.Get("Content-Length")
